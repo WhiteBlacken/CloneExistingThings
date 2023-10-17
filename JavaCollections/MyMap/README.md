@@ -1,9 +1,8 @@
+
 # 目标
 首先从最简单的HashMap开始实现，其次是HashTable，最后实现concurrentHashMap，因为不同版本的concurrentHashMap实现不同，此处选用JDK1.8版本的实现。
+其次实现会对场景进行简化，加入必要的注释，并且使其写法更易懂（但是并非最简洁），与实际java.util或juc包下的类有出入。
 因为这几个Map均实现了Map接口，所以我这里实现去针对Map中的通用方法进行筛选。
-
-# HashMap
-## 整体结构
 以HashMap为例，需要实现的方法如下：
 ```java
 public class MyHashMap<K,V>{
@@ -18,7 +17,7 @@ public class MyHashMap<K,V>{
 }
 
 ```
-比较关键的静态属性（后续未必会使用）
+一些静态属性，反应了部分设计的思路，在实现中未必都会使用。
 ```java
 /* ------------Static property ------------- */
 // 初始的容量，可以暂时理解为初始的数组长度
@@ -34,13 +33,18 @@ static final int UNTREEIFY_THRESHOLD = 6;
 // 树化的条件：需要数组长度不小于一个阈值，才考虑树化；否则，先resize数组。
 static final int MIN_TREEIFY_CAPACITY = 64;
 ```
-会用到的类的属性
+类的属性
 ```java
 // 用于存放Node节点的数组，可以理解为哈希桶，仅存放发生冲突的首节点
 Node<K,V>[] table;
 // 当前所有的Node数量，用于与加载因子配合，决定是否扩容
 int size;
+// 用于确定resize的时机，大小为capacity*load factor
+int threshold;
+// 加载因子
+float loadFactor;
 ```
+# HashMap
 ## 结点
 HashMap中的每个结点使用Node来表示,Node实现了Entry接口。可以先看下修改实现Entry哪些方法。
 节点分为两种
@@ -160,6 +164,7 @@ final Node<K,V> getNode(int hash, Object key) {
 这里可以看到几点：
 * key不存在时，返回的哈希值是0.
 * key存在的话，则使用java本身的`hashCode()`方法，为什么要按位与(h>>>16)呢？
+    * 如果length很短，那么通常只有低位参与运算，而让高16位也参与运算可以更好的均匀散列，减少碰撞。--mark 其实还是不太懂
 ```java
 static int hash(Object key) {
     int h;
@@ -234,3 +239,126 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent, boolean evict) {
 }
 ```
 其中扩容函数`resize()`,onlyIfAbsent,evict参数，树化都没考虑。
+
+### 实现resize()方法
+这个也是HashMap的一个核心方法，用于hashmap的扩容。
+先看下框架:
+```java
+final Node<K, V>[] resize() {
+    Node<K, V>[] oldTab = table;
+    int oldCap = (oldTab == null) ? 0 : oldTab.length;
+    
+    int newCap = 0;
+    // 确定新的容量大小...
+    
+    Node<K, V> newTab = (Node<K, V>[]) new Node[newCap];
+    // 填充新的哈希槽
+    
+    return newTab;
+}
+```
+主要确定两个问题
+1. 扩容到多大
+2. 如何将数据从旧的哈希槽转移到新的哈希槽。
+
+**扩容大小的确定**
+```java
+Node<K, V>[] oldTab = table;
+int oldCap = (oldTab == null) ? 0 : oldTab.length;
+int oldThr = threshold;
+int newCap = 0, newThr = 0;
+// 确定新的容量大小
+if (oldCap > 0) {
+    // 初始化过的
+    if (oldCap > MAXIMUM_CAPACITY) {
+        /**
+         * 这种情况就是不希望再扩容了
+         * 1. 将扩容的实际设置为最大值
+         * 2. 直接返回之前的map（不做处理）
+         */
+        threshold = Integer.MAX_VALUE;
+        return oldTab;
+    } else if ((oldCap << 1) < MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) {
+        /**
+         * 扩容后不超出最大范围
+         * 1. 容量双倍
+         * 2. 控制resize实际的threshold也双倍
+         */
+        newCap = oldCap << 1;
+        newThr = oldThr << 1;
+    }
+} else if (oldThr > 0) {
+    // 这应该是在初始化的场景下，但是这一块和下面一块都不是很懂
+    newCap = oldThr;
+} else {
+    newCap = DEFAULT_INITIAL_CAPACITY;
+    newThr = (int) (DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
+}
+
+if (newThr == 0) {
+    // resize阈值的初始化
+    float ft = (float) newCap * loadFactor;
+    newThr = (newCap < MAXIMUM_CAPACITY && ft < (float) MAXIMUM_CAPACITY ? (int) ft : Integer.MAX_VALUE);
+}
+threshold = newThr;
+```
+
+**将元素从旧的哈希槽转移到新的哈希槽的逻辑**
+其中如何确定在新的哈希中的位置，hashmap的实现做了一些特殊处理。
+```java
+Node<K, V>[] newTab = (Node<K, V>[]) new Node[newCap];
+// 填充新的哈希槽
+table = newTab;
+if (oldTab != null) {
+    for (int j = 0; j < oldCap; j++) {
+        Node<K, V> e = oldTab[j];
+        if (e != null) {
+            // 不为null则迁移
+            oldTab[j] = null;
+            if (e.next == null) // 没有哈希冲突的好处理，直接重新计算在数组中的位置即可
+                newTab[e.hash & (newCap - 1)] = e;
+            else{
+                // 出现了哈希冲突要分情况，是链表or红黑树
+                if(e instanceof TreeNode){
+                    // 写红黑树迁移的逻辑...
+                }else{
+                    // 写链表迁移的逻辑
+                    /**
+                     * 扩容两倍后，要么在原位置j，要么在oldCap+j
+                     * 所以可以根据这个特点，分为两个链表，保证链表顺序的同时，插入到不同的位置
+                         */
+                    Node<K,V> loHead = null, loTail = null;
+                    Node<K,V> hiHead = null, hiTail = null;
+                    Node<K,V> next;
+                    do {
+                        next = e.next;
+                        if ((e.hash & oldCap) == 0) {
+                            if (loTail == null)
+                                loHead = e;
+                            else
+                                loTail.next = e;
+                            loTail = e;
+                        }
+                        else {
+                            if (hiTail == null)
+                                hiHead = e;
+                            else
+                                hiTail.next = e;
+                            hiTail = e;
+                        }
+                    } while ((e = next) != null);
+                    if (loTail != null) {
+                        loTail.next = null;
+                        newTab[j] = loHead;
+                    }
+                    if (hiTail != null) {
+                        hiTail.next = null;
+                        newTab[j + oldCap] = hiHead;
+                    }
+                }
+            }
+
+        }
+    }
+}
+```
