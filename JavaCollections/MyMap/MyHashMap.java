@@ -1,6 +1,7 @@
 package MyMap;
 
 import javax.swing.tree.TreeNode;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -9,7 +10,7 @@ import java.util.Objects;
  * @Date 2023/10/16 16:28
  * @Version 1.0
  */
-public class MyHashMap<K, V>{
+public class MyHashMap<K, V> {
     /* ------------Static property ------------- */
     // 初始的容量，可以暂时理解为初始的数组长度
     static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;
@@ -27,6 +28,8 @@ public class MyHashMap<K, V>{
     /* ------------Other Property ------------- */
     Node<K, V>[] table;
     int size;
+    int threshold;
+    float loadFactor;
 
     public int size() {
         return size;
@@ -45,7 +48,6 @@ public class MyHashMap<K, V>{
     public V put(K key, V value) {
         return putVal(hash(key), key, value, flase, false);
     }
-
 
 
     /* ------------Utils------------- */
@@ -91,6 +93,7 @@ public class MyHashMap<K, V>{
         if (table == null || table.length == 0) {
             table = resize();
         }
+
         int n = table.length; // 哈希槽的长度
         /**
          * 计算要插入的位置
@@ -129,6 +132,106 @@ public class MyHashMap<K, V>{
             resize();
         afterNodeInsertion(evict);
         return null;
+    }
+
+    final Node<K, V>[] resize() {
+        Node<K, V>[] oldTab = table;
+        int oldCap = (oldTab == null) ? 0 : oldTab.length;
+        int oldThr = threshold;
+        int newCap = 0, newThr = 0;
+        // 确定新的容量大小
+        if (oldCap > 0) {
+            // 初始化过的
+            if (oldCap > MAXIMUM_CAPACITY) {
+                /**
+                 * 这种情况就是不希望再扩容了
+                 * 1. 将扩容的实际设置为最大值
+                 * 2. 直接返回之前的map（不做处理）
+                 */
+                threshold = Integer.MAX_VALUE;
+                return oldTab;
+            } else if ((oldCap << 1) < MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) {
+                /**
+                 * 扩容后不超出最大范围
+                 * 1. 容量双倍
+                 * 2. 控制resize实际的threshold也双倍
+                 */
+                newCap = oldCap << 1;
+                newThr = oldThr << 1;
+            }
+        } else if (oldThr > 0) {
+            // 这应该是在初始化的场景下，但是这一块和下面一块都不是很懂
+            newCap = oldThr;
+        } else {
+            newCap = DEFAULT_INITIAL_CAPACITY;
+            newThr = (int) (DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
+        }
+
+        if (newThr == 0) {
+            // resize阈值的初始化
+            float ft = (float) newCap * loadFactor;
+            newThr = (newCap < MAXIMUM_CAPACITY && ft < (float) MAXIMUM_CAPACITY ? (int) ft : Integer.MAX_VALUE);
+        }
+        threshold = newThr;
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        Node<K, V>[] newTab = (Node<K, V>[]) new Node[newCap];
+        // 填充新的哈希槽
+        table = newTab;
+        if (oldTab != null) {
+            for (int j = 0; j < oldCap; j++) {
+                Node<K, V> e = oldTab[j];
+                if (e != null) {
+                    // 不为null则迁移
+                    oldTab[j] = null;
+                    if (e.next == null) // 没有哈希冲突的好处理，直接重新计算在数组中的位置即可
+                        newTab[e.hash & (newCap - 1)] = e;
+                    else{
+                        // 出现了哈希冲突要分情况，是链表or红黑树
+                        if(e instanceof TreeNode){
+                            // 写红黑树迁移的逻辑...
+                        }else{
+                            // 写链表迁移的逻辑
+                            /**
+                             * 扩容两倍后，要么在原位置j，要么在oldCap+j
+                             * 所以可以根据这个特点，分为两个链表，保证链表顺序的同时，插入到不同的位置
+                              */
+                            Node<K,V> loHead = null, loTail = null;
+                            Node<K,V> hiHead = null, hiTail = null;
+                            Node<K,V> next;
+                            do {
+                                next = e.next;
+                                if ((e.hash & oldCap) == 0) {
+                                    if (loTail == null)
+                                        loHead = e;
+                                    else
+                                        loTail.next = e;
+                                    loTail = e;
+                                }
+                                else {
+                                    if (hiTail == null)
+                                        hiHead = e;
+                                    else
+                                        hiTail.next = e;
+                                    hiTail = e;
+                                }
+                            } while ((e = next) != null);
+                            if (loTail != null) {
+                                loTail.next = null;
+                                newTab[j] = loHead;
+                            }
+                            if (hiTail != null) {
+                                hiTail.next = null;
+                                newTab[j + oldCap] = hiHead;
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+
+        return newTab;
     }
 
     /* ------------Static utils------------- */
