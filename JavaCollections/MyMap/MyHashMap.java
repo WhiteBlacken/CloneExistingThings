@@ -46,7 +46,7 @@ public class MyHashMap<K, V> {
     }
 
     public V put(K key, V value) {
-        return putVal(hash(key), key, value, flase, false);
+        return putVal(hash(key), key, value, false, false);
     }
 
 
@@ -104,7 +104,8 @@ public class MyHashMap<K, V> {
         Node<K, V> p = table[i];
         Node<K, V> e = null; // 用于承接返回值
         if (p == null)
-            table[i] = newNode(hash, key, value, null);
+//            table[i] = newNode(hash, key, value, null);
+            table[i] = new Node<>(hash, key, value, null);
         else {
             if (p.hash == hash && Objects.equals(key, p.key))
                 e = p;
@@ -130,7 +131,7 @@ public class MyHashMap<K, V> {
         // 考虑是否需要扩容
         if (++size > threshold)
             resize();
-        afterNodeInsertion(evict);
+//        afterNodeInsertion(evict);
         return null;
     }
 
@@ -248,6 +249,12 @@ public class MyHashMap<K, V> {
         V value; //值
         Node<K, V> next; //使用拉链表处理冲突，所以记录next结点
 
+        Node(int hash, K key, V value, Node<K, V> next){
+            this.hash = hash;
+            this.key = key;
+            this.value = value;
+            this.next = next;
+        }
         @Override
         public K getKey() {
             return key;
