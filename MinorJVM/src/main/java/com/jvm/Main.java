@@ -1,5 +1,8 @@
 package com.jvm;
 
+
+import com.jvm.classpath.ClassPath;
+
 /**
  * @Author qxy
  * @Date 2023/11/3 14:32
@@ -21,6 +24,7 @@ public class Main {
     }
 
     private static void startJVM(Cmd cmd){
-        System.out.println("JVM starting...");
+        new ClassPath(cmd.jre, cmd.classpath);
+
     }
 }

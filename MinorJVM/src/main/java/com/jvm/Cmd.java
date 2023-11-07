@@ -25,6 +25,9 @@ public class Cmd {
     @Parameter(description = "main class and args")
     List<String> mainClassAndArgs;
 
+    @Parameter(names = "-Xjre", description = "path to jre", order = 4)
+    String jre;
+
     boolean ok;
 
     static Cmd parse(String[] argv){
