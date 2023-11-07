@@ -19,7 +19,7 @@ public class ClassPath {
     private Entry extensionClassPath; // 扩展类路径
     private Entry userClassPath; // 用户类路径
 
-    private ClassPath(String jreOption, String cpOption) {
+    public ClassPath(String jreOption, String cpOption) {
         parseBootAndExtensionClassPath(jreOption);
         parseUserClassPath(cpOption);
     }

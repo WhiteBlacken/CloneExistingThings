@@ -3,6 +3,9 @@ package com.jvm;
 
 import com.jvm.classpath.ClassPath;
 
+import java.io.IOException;
+import java.util.Arrays;
+
 /**
  * @Author qxy
  * @Date 2023/11/3 14:32
@@ -19,12 +22,22 @@ public class Main {
             System.out.println("java version \"1.8.0\"");
             return;
         }
+
         startJVM(cmd);
 
     }
 
     private static void startJVM(Cmd cmd){
-        new ClassPath(cmd.jre, cmd.classpath);
+        ClassPath cp = new ClassPath(cmd.jre, cmd.classpath);
+        System.out.printf("classpath:%s class:%s args:%s \n", cmd.classpath, cmd.getMainClass(), cmd.getAppArgs());
+        String className = cmd.getMainClass().replace(".", "/");
 
+        try {
+            byte[] classData = cp.readClass(className);
+            System.out.println(Arrays.toString(classData));
+        } catch (IOException e) {
+            System.out.println("Could not find or load main class" + cmd.getMainClass());
+            e.printStackTrace();
+        }
     }
 }

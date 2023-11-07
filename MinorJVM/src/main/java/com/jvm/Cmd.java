@@ -30,12 +30,20 @@ public class Cmd {
 
     boolean ok;
 
-    static Cmd parse(String[] argv){
+    static Cmd parse(String[] argv) {
         Cmd args = new Cmd();
         JCommander cmd = JCommander.newBuilder().addObject(args).build();
         cmd.parse(argv);
         args.ok = true;
         return args;
+    }
+
+    String getMainClass() {
+        return (mainClassAndArgs != null && !mainClassAndArgs.isEmpty()) ? mainClassAndArgs.get(0) : null;
+    }
+
+    List<String> getAppArgs() {
+        return (mainClassAndArgs != null && mainClassAndArgs.size() > 1) ? mainClassAndArgs.subList(1, mainClassAndArgs.size()) : null;
     }
 
 }

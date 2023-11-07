@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
  */
 public class WildcardEntry extends CompositeEntry{
     public WildcardEntry(String pathList) {
-        super(pathList);
+        super(toPathList(pathList));
     }
 
     private static String toPathList(String wildcardPath){
