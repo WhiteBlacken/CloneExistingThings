@@ -4,6 +4,9 @@ package com.jvm;
 import com.jvm.classfile.ClassFile;
 import com.jvm.classfile.MemberInfo;
 import com.jvm.classpath.ClassPath;
+import com.jvm.rtda.Frame;
+import com.jvm.rtda.LocalVars;
+import com.jvm.rtda.OperandStack;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -30,20 +33,34 @@ public class Main {
     }
 
     private static void startJVM(Cmd cmd){
-        ClassPath cp = new ClassPath(cmd.jre, cmd.classpath);
-        System.out.printf("classpath:%s class:%s args:%s \n", cmd.classpath, cmd.getMainClass(), cmd.getAppArgs());
-        String className = cmd.getMainClass().replace(".", "/");
+//        打印类的信息
+//        ClassPath cp = new ClassPath(cmd.jre, cmd.classpath);
+//        System.out.printf("classpath:%s class:%s args:%s \n", cmd.classpath, cmd.getMainClass(), cmd.getAppArgs());
+//        String className = cmd.getMainClass().replace(".", "/");
+//
+//        ClassFile classFile = loadClass(className, cp);
+//        assert classFile != null;
+//        printClassInfo(classFile);
 
-        ClassFile classFile = loadClass(className, cp);
-        assert classFile != null;
-        printClassInfo(classFile);
-//        try {
-//            byte[] classData = cp.readClass(className);
-//            System.out.println(Arrays.toString(classData));
-//        } catch (IOException e) {
-//            System.out.println("Could not find or load main class" + cmd.getMainClass());
-//            e.printStackTrace();
-//        }
+        Frame frame = new Frame(100,100);
+        test_localVars(frame.getLocalVars());
+        test_operandStack(frame.getOperandStack());
+
+    }
+
+    private static void test_operandStack(OperandStack operandStack) {
+        operandStack.pushInt(100);
+        operandStack.pushInt(-100);
+        operandStack.pushRef(null);
+        System.out.println(operandStack.popRef());
+        System.out.println(operandStack.popInt());
+    }
+
+    private static void test_localVars(LocalVars localVars) {
+        localVars.setInt(0, 100);
+        localVars.setInt(1, -100);
+        System.out.println(localVars.getInt(0));
+        System.out.println(localVars.getInt(1));
     }
 
     private static void printClassInfo(ClassFile cf) {
